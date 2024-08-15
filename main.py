@@ -9,7 +9,8 @@ from sqlalchemy.exc import IntegrityError
 app = FastAPI()
 
 # Настройка базы данных MySQL
-SQLALCHEMY_DATABASE_URL = "mysql+pymysql://isp_is_test:12345@192.168.25.23/isp_is_test"
+SQLALCHEMY_DATABASE_URL = "mysql+pymysql://mysql:mysql@localhost/test"
+
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -30,13 +31,21 @@ class UserCreate(BaseModel):
     name: str
     email: str
 
+
+class UserUpdate(BaseModel):
+    name: str | None = None
+    email: str | None = None
+
+
 class UserResponse(BaseModel):
     id: int
     name: str
     email: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+        # v2
+        # orm_mode = True
 
 # Зависимость для получения сессии базы данных
 def get_db():
@@ -46,9 +55,18 @@ def get_db():
     finally:
         db.close()
 
+
+# Маршрут для получения пользователя
+@app.get("/users/", response_model=list[UserResponse])
+def get_users(db: Session = Depends(get_db)):
+    users = db.query(User).all()
+    if not users:
+        raise HTTPException(status_code=404, detail="Users not found")
+    return users
+
 # Маршрут для получения пользователя по ID
 @app.get("/users/{user_id}", response_model=UserResponse)
-def read_user(user_id: int, db: Session = Depends(get_db)):
+def get_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -63,6 +81,38 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(db_user)
         return db_user
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+
+# Маршрут для удаления пользователя по ID
+@app.delete("/users/{user_id}", response_model=UserResponse)
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    db.delete(user)
+    db.commit()
+    return user
+
+# Маршрут для обновления пользователя
+@app.put("/users/{user_id}", response_model=UserResponse)
+def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user_update.name:
+        user.name = user_update.name
+    if user_update.email:
+        user.email = user_update.email
+    
+    try:
+        db.commit()
+        db.refresh(user)
+        return user
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=400, detail="Email already registered")
