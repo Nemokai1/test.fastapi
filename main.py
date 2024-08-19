@@ -56,8 +56,7 @@ def get_db():
         db.close()
 
 
-# Маршрут для получения пользователя
-@app.get("/users/", response_model=list[UserResponse])
+
 def get_users(db: Session = Depends(get_db)):
     users = db.query(User).all()
     if not users:
