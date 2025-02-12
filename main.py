@@ -1,10 +1,14 @@
+# блок переменных
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import IntegrityError
+# блок переменных
 
+
+# блок создания объектов
 # Создание объекта FastAPI
 app = FastAPI()
 
@@ -14,7 +18,9 @@ SQLALCHEMY_DATABASE_URL = "mysql+pymysql://mysql:mysql@localhost/test"
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+# блок создания объектов
 
+# блок создания схем
 # Определение модели SQLAlchemy для пользователя
 class User(Base):
     __tablename__ = "users"
@@ -47,6 +53,9 @@ class UserResponse(BaseModel):
         # v2
         # orm_mode = True
 
+# блок создания схем
+
+# блок функций
 # Зависимость для получения сессии базы данных
 def get_db():
     db = SessionLocal()
@@ -62,7 +71,10 @@ def get_users(db: Session = Depends(get_db)):
     if not users:
         raise HTTPException(status_code=404, detail="Users not found")
     return users
+# блок функций
 
+
+# блок маршрутов
 # Маршрут для получения пользователя по ID
 @app.get("/users/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db)):
@@ -115,3 +127,4 @@ def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=400, detail="Email already registered")
+# блок маршрутов
